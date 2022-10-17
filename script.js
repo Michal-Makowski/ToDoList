@@ -41,6 +41,7 @@ const addNewTask = () => {
 		newTask.textContent = taskInput.value;
 		ulList.append(newTask);
 		createToolsArea(newTask);
+		saveLocalTask(taskInput.value);
 		taskInput.value = "";
 		errorInfo.textContent = "";
 	} else {
@@ -78,7 +79,8 @@ const checkClick = e => {
 		deleteTask(e);
 	}
 };
-// --- Open Popup "Window" and save Task text to change --- //
+// <<<--->>> Edit popup <<<--->>> //
+// --- Open Popup and save Task text to change --- //
 const editTask = e => {
 	taskToEdit = e.target.closest("li");
 	popupInput.value = taskToEdit.firstChild.textContent;
@@ -98,16 +100,18 @@ const confirmEditTask = () => {
 		popupInfo.textContent = "Jede Aufgabe braucht Inhalt :)";
 	}
 };
+// <<<--->>>  <<<--->>> //
 // --- Delete Task + messege when we have no more Task--- //
 const deleteTask = e => {
 	e.target.closest("li").remove();
-
+	deleteLocalTask(e.target.closest("li"));
 	const anyTask = ulList.querySelectorAll("li");
 
 	if (anyTask.length === 0) {
 		errorInfo.textContent = "Keine Aufgaben.";
 	}
 };
+// <<<--->>> Enter button <<<--->>> //
 // --- Add new task by Enter on keyboard --- //
 const enterKeyCheck = e => {
 	if (e.key === "Enter") {
@@ -120,5 +124,49 @@ const enterKeyCheckPopup = e => {
 		confirmEditTask();
 	}
 };
+// <<<--->>> Local Storage <<<--->>> //
+// --- Save task to Local Storage --- //
+const saveLocalTask = taskToSave => {
+	let tasks;
+	if (localStorage.getItem("tasks") === null) {
+		tasks = [];
+	} else {
+		tasks = JSON.parse(localStorage.getItem("tasks"));
+	}
+	tasks.push(taskToSave);
+	localStorage.setItem("tasks", JSON.stringify(tasks));
+	console.log(taskToSave);
+};
+// --- Get task from Local Storage --- //
+const getLocalTask = () => {
+	if (localStorage.getItem("tasks") === null) {
+		tasks = [];
+	} else {
+		tasks = JSON.parse(localStorage.getItem("tasks"));
+	}
+	tasks.forEach(taskToGet => {
+		const newTask = document.createElement("li");
+		newTask.textContent = taskToGet;
+		ulList.append(newTask);
+		createToolsArea(newTask);
+	});
+};
+
+// --- Delete task from Local Storage --- //
+const deleteLocalTask = taskToDelete => {
+	let tasks;
+	if (localStorage.getItem("tasks") === null) {
+		tasks = [];
+	} else {
+		tasks = JSON.parse(localStorage.getItem("tasks"));
+	}
+	const taskIndex = taskToDelete.textContent.substring(
+		0,
+		taskToDelete.textContent.length - 4
+	);
+	tasks.splice(tasks.indexOf(taskIndex), 1);
+	localStorage.setItem("tasks", JSON.stringify(tasks));
+};
 
 document.addEventListener("DOMContentLoaded", main);
+document.addEventListener("DOMContentLoaded", getLocalTask);
