@@ -8,10 +8,12 @@ let taskToEdit;
 let popupInput;
 let popupAddBtn;
 let popupCancelBtn;
+const BACKEND_URL = "https://mmtodobackend.herokuapp.com";
 
 const main = () => {
 	prepareDOMElements();
 	prepareDOMEvents();
+	getTaskFromBackEnd();
 };
 // --- ELements --- //
 const prepareDOMElements = () => {
@@ -25,7 +27,7 @@ const prepareDOMElements = () => {
 	popupAddBtn = document.querySelector(".accept");
 	popupCancelBtn = document.querySelector(".cancel");
 };
-// --- Lisener --- //
+// --- Listener --- //
 const prepareDOMEvents = () => {
 	addButton.addEventListener("click", addNewTask);
 	ulList.addEventListener("click", checkClick);
@@ -34,14 +36,19 @@ const prepareDOMEvents = () => {
 	taskInput.addEventListener("keyup", enterKeyCheck);
 	popupInput.addEventListener("keyup", enterKeyCheckPopup);
 };
-// --- Add new task + validation --- //
+// --- Add new task + validation + send task to BackEnd --- //
 const addNewTask = () => {
 	if (taskInput.value !== "") {
+		let taskObject = {
+			// object wchich we send to backEnd
+			taskTodo: taskInput.value,
+			complete: false,
+		};
 		const newTask = document.createElement("li");
 		newTask.textContent = taskInput.value;
 		ulList.append(newTask);
 		createToolsArea(newTask);
-		saveLocalTask(taskInput.value);
+		sendTaskToBackEnd(taskObject); // send task to BackEnd
 		taskInput.value = "";
 		errorInfo.textContent = "";
 	} else {
@@ -68,11 +75,17 @@ const createToolsArea = newTask => {
 
 	toolsPannel.append(completeBtn, editBtn, deleteBtn);
 };
-// --- Check what button was clicked in "li" --- //
+// --- Check wchich button was clicked in "li" + change task status --- //
 const checkClick = e => {
 	if (e.target.matches(".complete")) {
 		e.target.closest("li").classList.toggle("completed");
 		e.target.classList.toggle("completed");
+		// when button Complete was clicked we chagne status by task object in BackEnd
+		completedBackEnd(
+			e.target
+				.closest("li")
+				.textContent.substring(0, e.target.closest("li").textContent.length - 4)
+		);
 	} else if (e.target.matches(".edit")) {
 		editTask(e);
 	} else if (e.target.matches(".delete")) {
@@ -91,22 +104,29 @@ const closeEditTask = () => {
 	popup.style.display = "none";
 	popupInfo.textContent = "";
 };
-// --- Edit + Validation --- //
+// --- Edit + Validation + send task object to change --- //
 const confirmEditTask = () => {
 	if (popupInput.value !== "") {
+		const oldTask = taskToEdit.firstChild.textContent;
 		taskToEdit.firstChild.textContent = popupInput.value;
+		editTaskBackEnd(oldTask, popupInput.value);
 		closeEditTask();
 	} else {
 		popupInfo.textContent = "Jede Aufgabe braucht Inhalt :)";
 	}
 };
 // <<<--->>>  <<<--->>> //
-// --- Delete Task + messege when we have no more Task--- //
+// --- Delete Task + messege when we have no more Task + remove task object from BackEnd--- //
 const deleteTask = e => {
 	e.target.closest("li").remove();
-	deleteLocalTask(e.target.closest("li"));
-	const anyTask = ulList.querySelectorAll("li");
+	// when button Delete was clicked we remove task object from BackEnd
+	deleteFromBackEnd(
+		e.target
+			.closest("li")
+			.textContent.substring(0, e.target.closest("li").textContent.length - 4)
+	);
 
+	const anyTask = ulList.querySelectorAll("li");
 	if (anyTask.length === 0) {
 		errorInfo.textContent = "Keine Aufgaben.";
 	}
@@ -124,49 +144,70 @@ const enterKeyCheckPopup = e => {
 		confirmEditTask();
 	}
 };
-// <<<--->>> Local Storage <<<--->>> //
-// --- Save task to Local Storage --- //
-const saveLocalTask = taskToSave => {
-	let tasks;
-	if (localStorage.getItem("tasks") === null) {
-		tasks = [];
-	} else {
-		tasks = JSON.parse(localStorage.getItem("tasks"));
-	}
-	tasks.push(taskToSave);
-	localStorage.setItem("tasks", JSON.stringify(tasks));
-	console.log(taskToSave);
-};
-// --- Get task from Local Storage --- //
-const getLocalTask = () => {
-	if (localStorage.getItem("tasks") === null) {
-		tasks = [];
-	} else {
-		tasks = JSON.parse(localStorage.getItem("tasks"));
-	}
-	tasks.forEach(taskToGet => {
-		const newTask = document.createElement("li");
-		newTask.textContent = taskToGet;
-		ulList.append(newTask);
-		createToolsArea(newTask);
-	});
-};
 
-// --- Delete task from Local Storage --- //
-const deleteLocalTask = taskToDelete => {
-	let tasks;
-	if (localStorage.getItem("tasks") === null) {
-		tasks = [];
-	} else {
-		tasks = JSON.parse(localStorage.getItem("tasks"));
-	}
-	const taskIndex = taskToDelete.textContent.substring(
-		0,
-		taskToDelete.textContent.length - 4
-	);
-	tasks.splice(tasks.indexOf(taskIndex), 1);
-	localStorage.setItem("tasks", JSON.stringify(tasks));
-};
+// <<<--->>> BackEnd <<<--->>> //
+// --- Send task object to BackEnd --- //
+function sendTaskToBackEnd(task) {
+	fetch(`${BACKEND_URL}/task`, {
+		method: "POST",
+		body: JSON.stringify(task),
+		headers: {
+			"content-type": "application/json",
+		},
+	});
+}
+// --- Get array with task object + build task + status check --- //
+function getTaskFromBackEnd() {
+	fetch(`${BACKEND_URL}/task`)
+		.then(res => res.json())
+		.then(({ taskList }) => {
+			taskList.forEach(taskToGet => {
+				const newTask = document.createElement("li");
+				newTask.textContent = taskToGet.taskTodo;
+				ulList.append(newTask);
+				createToolsArea(newTask);
+				console.log(taskToGet);
+				if (taskToGet.complete === true) {
+					newTask.querySelector(".complete").classList.toggle("completed");
+					newTask.classList.toggle("completed");
+				}
+			});
+		})
+		.catch(err => console.error(err));
+}
+// --- Delete task object from BackEnd --- //
+function deleteFromBackEnd(task) {
+	fetch(`${BACKEND_URL}/task/${task}`, {
+		method: "DELETE",
+	});
+}
+// --- Edit task input in BackEnd --- //
+function editTaskBackEnd(oldTask, newTask) {
+	const taskToEdit = {
+		oldTask: oldTask,
+		newTask: newTask,
+	};
+	fetch(`${BACKEND_URL}/task`, {
+		method: "PATCH",
+		body: JSON.stringify(taskToEdit),
+		headers: {
+			"content-type": "application/json",
+		},
+	});
+}
+// --- Edit task status in BackEnd --- //
+function completedBackEnd(task) {
+	const task1 = {
+		task: task,
+		status: "1",
+	};
+	fetch(`${BACKEND_URL}/task/status`, {
+		method: "PATCH",
+		body: JSON.stringify(task1),
+		headers: {
+			"content-type": "application/json",
+		},
+	});
+}
 
 document.addEventListener("DOMContentLoaded", main);
-document.addEventListener("DOMContentLoaded", getLocalTask);
