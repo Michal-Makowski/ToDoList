@@ -8,7 +8,7 @@ let taskToEdit;
 let popupInput;
 let popupAddBtn;
 let popupCancelBtn;
-const BACKEND_URL = "https://mmtodobackend.herokuapp.com";
+const BACKEND_URL = "https://mmtodobackend.onrender.com/";
 
 const main = () => {
 	prepareDOMElements();
